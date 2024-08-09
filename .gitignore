@@ -1,3 +1,4 @@
 node_modules/
 apiTest/
 .env
+*/.env
