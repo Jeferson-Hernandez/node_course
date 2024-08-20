@@ -1,21 +1,47 @@
+const TicketControl = require("../models/ticket-control")
+
+const ticketControl = new TicketControl()
+
 const socketController = socket => {
-  console.log('Cliente conectado')
-  socket.on('disconnect', () => {
-    // console.log('Cliente desconectado')
+
+  socket.emit('ultimo-ticket', ticketControl.ultimo)
+  socket.emit('estado-actual', ticketControl.ultimos4)
+  socket.emit('tickets-pendientes', ticketControl.tickets.length)
+
+  socket.on('siguiente-ticket', (payload, callback) => {
+    const siguiente = ticketControl.siguiente()
+    socket.broadcast.emit('tickets-pendientes', ticketControl.tickets.length)
+    callback(siguiente)
+
+    //TODO: notificar que hay un nuevo ticket
   })
 
-  //callback la referencia a una fn del front-end:
-  // socket.emit('enviar-mensaje', payload, (id) => {
-  //   console.log('Desde el server', id)
-  // })
+  socket.on('atender-ticket', ({ escritorio }, callback) => {
+    if (!escritorio) {
+      return callback({
+        ok: false,
+        msg: 'El escritorio es obligatorio'
+      })
+    }
 
-  socket.on('enviar-mensaje', (payload, callback) => {
-    const id = 123456086
-    callback(id)
-    //this.io manda el mensaje a todos los conectados
-    // this.io.emit('enviar-mensaje', payload)
-    //broadcast envia mensaje a todos los sockets excepto el que lo envió
-    socket.broadcast.emit('enviar-mensaje', payload)
+    const ticket = ticketControl.atenderTicket(escritorio)
+    socket.broadcast.emit('estado-actual', ticketControl.ultimos4)
+    //envia el pendiente al mismo socket y a los demas con el broadcast
+    // socket.emit('tickets-pendientes', ticketControl.tickets.length)
+    socket.broadcast.emit('tickets-pendientes', ticketControl.tickets.length)
+
+    if (!ticket) {
+      callback({
+        ok: false,
+        msg: 'No hay tickets pendientes'
+      })
+    } else {
+      callback({
+        ok: true,
+        pendientes: ticketControl.tickets.length,
+        ticket
+      })
+    }
   })
 }
 
